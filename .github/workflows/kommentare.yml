@@ -1,0 +1,34 @@
+# Kommentar-Automatik: Wer unter einem Exelery-Beitrag EXELERY kommentiert, bekommt den Wartelisten-Link per Direktnachricht.
+name: Kommentar-Automatik
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: kommentare
+  cancel-in-progress: false
+jobs:
+  kommentare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kommentare prüfen und antworten
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          STICHWORT: EXELERY
+        run: python3 kommentare.py
+      - name: Erledigte Kommentare merken
+        if: always()
+        run: |
+          git config user.name "exelery-bot"
+          git config user.email "exelery-bot@users.noreply.github.com"
+          if [ -e kommentare ]; then git add kommentare; fi
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -q -m "Kommentare erledigt"
+          for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 3; done
